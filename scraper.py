@@ -10,7 +10,9 @@ async def scrape_site(url: str) -> dict:
         page = await browser.new_page()
         await page.goto(url, timeout=60_000)
         await page.wait_for_load_state("networkidle")
-        html = await page.content()
-        await browser.close()
 
-    return extract_content(html)
+        # hand over the page & base url to extractor
+        data = await extract_content(page, url)
+
+        await browser.close()
+    return data
