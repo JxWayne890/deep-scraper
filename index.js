@@ -1,27 +1,26 @@
 // index.js
 const express = require('express');
-const scrapeSite = require('./scraper');
-
 const app = express();
+
 app.use(express.json());
 
+// Basic test route
 app.post('/scrape', async (req, res) => {
-  console.log("📥 Received request body:", req.body);  // Log incoming request
+  console.log("📥 Received request body:", req.body);
 
   const { url } = req.body;
   if (!url) {
-    console.log("❌ No URL received!");
-    return res.status(400).json({ error: 'URL is required' });
+    return res.status(400).json({ error: 'Missing URL' });
   }
 
-  try {
-    const data = await scrapeSite(url);
-    res.json(data);
-  } catch (err) {
-    console.error("❌ Scraper error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+  // Temporary mock response
+  res.json({
+    about: "This is a mock 'About Us' section.",
+    services: "This is a mock 'Services' section."
+  });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Scraper running on port ${PORT}`));
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Scraper running on port ${PORT}`);
+});
