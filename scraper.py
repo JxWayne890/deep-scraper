@@ -1,7 +1,7 @@
-# scraper.py  — stable final build (HTML-string interface)
+from urllib.parse import urlparse
+import inspect
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 from utils.extract_content import extract_content
-import inspect
 
 BLOCK_EXT = (
     ".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp",
@@ -16,9 +16,14 @@ def _should_abort(route):
         return True
     return False
 
+def _normalise(url: str) -> str:
+    """Ensure the URL has http/https scheme."""
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        return "http://" + url   # default to http; HTTPS fallback still applies
+    return url
 
 async def _scrape_once(browser, url: str):
-    """Scrape one URL inside its own fresh context/page."""
     ctx = await browser.new_context(
         ignore_https_errors=True,
         user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -42,31 +47,33 @@ async def _scrape_once(browser, url: str):
         except Exception:
             pass
 
-        html = await page.content()          # HTML TEXT
-        await ctx.close()
-
-        # handle both sync and async extractors
+        # hand the PAGE object to extractor (not raw HTML)
         if inspect.iscoroutinefunction(extract_content):
-            return await extract_content(html, url)
+            data = await extract_content(page, url)
         else:
-            return extract_content(html, url)
+            data = extract_content(page, url)
+
+        await ctx.close()
+        return data
 
     except Exception as e:
         await ctx.close()
         raise e
 
 
-async def scrape_site(url: str) -> dict:
-    """Try original URL, then HTTPS fallback — each in a fresh context."""
+async def scrape_site(raw_url: str) -> dict:
+    raw_url = _normalise(raw_url)
+
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
             headless=True,
             args=["--no-sandbox", "--disable-setuid-sandbox"],
         )
 
-        candidates = [url]
-        if url.startswith("http://"):
-            candidates.append(url.replace("http://", "https://", 1))
+        # try original + https fallback
+        candidates = [raw_url]
+        if raw_url.startswith("http://"):
+            candidates.append(raw_url.replace("http://", "https://", 1))
 
         last_err = None
         for target in candidates:
