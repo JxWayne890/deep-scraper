@@ -1,6 +1,7 @@
-# scraper.py  — final resilient build
+# scraper.py  — stable final build (HTML-string interface)
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 from utils.extract_content import extract_content
+import inspect
 
 BLOCK_EXT = (
     ".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp",
@@ -17,7 +18,7 @@ def _should_abort(route):
 
 
 async def _scrape_once(browser, url: str):
-    """Scrape a single URL inside its own fresh context/page."""
+    """Scrape one URL inside its own fresh context/page."""
     ctx = await browser.new_context(
         ignore_https_errors=True,
         user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -35,17 +36,20 @@ async def _scrape_once(browser, url: str):
         # dismiss common modal pop-ups
         try:
             await page.locator(
-                "button[aria-label*=close], "
-                ".close-modal, .mfp-close, "
+                "button[aria-label*=close], .close-modal, .mfp-close, "
                 ".elementor-popup-modal button[aria-label]"
             ).first.click(timeout=2_000)
         except Exception:
             pass
 
-        html = await page.content()
-        data = await extract_content(html, url)   # <- async util
+        html = await page.content()          # HTML TEXT
         await ctx.close()
-        return data
+
+        # handle both sync and async extractors
+        if inspect.iscoroutinefunction(extract_content):
+            return await extract_content(html, url)
+        else:
+            return extract_content(html, url)
 
     except Exception as e:
         await ctx.close()
