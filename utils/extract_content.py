@@ -26,9 +26,17 @@ def _grab_first_block(soup: BeautifulSoup, keywords) -> str | None:
     for tag in soup.find_all(True):
         if tag.name in _SKIP_TAGS:
             continue
-        if not tag.string:
+
+        # ``tag.string`` only returns text if the element has no children.
+        # Many headings wrap their text in <span> or other elements, which
+        # previously caused a False negative. ``get_text`` fetches the text
+        # regardless of nested tags and allows keyword matching in those
+        # common cases.
+        text = tag.get_text(" ", strip=True)
+        if not text:
             continue
-        if _match_keywords(tag.string, keywords):
+
+        if _match_keywords(text, keywords):
             parent = tag.find_parent(["section", "div"]) or tag
             txt = parent.get_text(" ", strip=True)
             if len(txt) >= _MIN_LEN:
